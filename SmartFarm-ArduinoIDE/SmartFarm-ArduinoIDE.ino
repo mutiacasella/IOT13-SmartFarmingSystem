@@ -26,9 +26,7 @@
 #include <BLEUtils.h>        
 #include <BLE2902.h>         
 
-// ====== WiFi ======
-// char ssid[] = "wifi.id"; 
-// char pass[] = "caritauu";
+// ====== WiFi ====== (for Blynk)
 char ssid[] = "Wokwi-GUEST"; 
 char pass[] = "";
 
