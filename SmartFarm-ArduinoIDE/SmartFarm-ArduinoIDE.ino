@@ -38,7 +38,7 @@ DHT dht(DHTPIN, DHTTYPE);
 int soilThreshold = 40;
 float tempThreshold = 32.0;
 float humThreshold = 40.0;
-int mqThreshold = 1500;  // perkiraan, referensi pada pake ppm soalnya bukan adc, harus dihitung dulu entar
+int mqThreshold = 1500;   // perkiraan, referensi pada pake ppm soalnya bukan adc, harus dihitung dulu entar (?)
 
 // ====== Irrigation Settings ======
 unsigned long interval = 10000;  // 21600000 (tiap 6 jam)
@@ -75,6 +75,11 @@ typedef struct {
 // ====== Blynk Button State ======
 bool blynkManual = false;
 
+// ====== Circular Buffer for Sensor Data ======
+#define BUFFER_SIZE 5  // buffer untuk menyimpan data sensor terakhir
+SensorData sensorBuffer[BUFFER_SIZE];
+int bufferIndex = 0;
+
 // Blynk V0 → manual control
 BLYNK_WRITE(V0) {
   if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
@@ -87,7 +92,7 @@ void irrigate() {
   if (xSemaphoreTake(pumpMutex, portMAX_DELAY) == pdTRUE) {
     Serial.println(">>> AIR AIT AIR <<<");
     digitalWrite(PUMP_LED, HIGH);
-    vTaskDelay(2000 / portTICK_PERIOD_MS);  // Non-blocking delay
+    vTaskDelay(2000 / portTICK_PERIOD_MS);    // non-blocking delay
     digitalWrite(PUMP_LED, LOW);
     Serial.println(">>> IRIGASI SELESAI <<<");
     xSemaphoreGive(pumpMutex);
@@ -96,7 +101,7 @@ void irrigate() {
 
 int readSoil() {
   int raw = analogRead(SOIL_PIN);
-  int moisture = map(raw, 4095, 1500, 0, 100); // 4095 = kering (di udara), 1500 = basah (di air)
+  int moisture = map(raw, 4095, 1500, 0, 100);  // 4095 = kering (di udara), 1500 = basah (di air)
   return constrain(moisture, 0, 100);
 }
 
@@ -107,11 +112,13 @@ int readMQ() {
 
 // ====== TASK FUNCTIONS ======
 void vSensorTask(void *pvParameter) {
-  SensorData sensorData;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xPeriod = pdMS_TO_TICKS(1000);
   
   while (1) {
+    SensorData sensorData;
+    
+    // Baca data sensor dengan proteksi mutex
     if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
       sensorData.temperature = dht.readTemperature();
       sensorData.humidity = dht.readHumidity();
@@ -121,9 +128,16 @@ void vSensorTask(void *pvParameter) {
     sensorData.soil = readSoil();
     sensorData.mq = readMQ();
     
-    // Kirim data sensor ke queue
-    if (sensorQueue != NULL) {
-      xQueueSend(sensorQueue, &sensorData, pdMS_TO_TICKS(100));
+    // Kirim data sensor ke queue untuk ControlTask
+    if (xQueueSend(sensorQueue, &sensorData, pdMS_TO_TICKS(100)) != pdPASS) {
+      Serial.println("WARNING: Sensor queue penuh!");
+    }
+    
+    // Simpan data terbaru di buffer circular untuk BlynkTask
+    if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
+      sensorBuffer[bufferIndex] = sensorData;  // Copy data ke buffer
+      bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+      xSemaphoreGive(blynkMutex);
     }
     
     vTaskDelayUntil(&xLastWakeTime, xPeriod);
@@ -132,12 +146,10 @@ void vSensorTask(void *pvParameter) {
 
 void vControlTask(void *pvParameter) {
   SensorData sensorData;
-  IrrigationCommand irrCmd;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xPeriod = pdMS_TO_TICKS(1000);
   
   while (1) {
-    // Terima data sensor dari queue
     if (xQueueReceive(sensorQueue, &sensorData, 0) == pdTRUE) {
       Serial.println("\n========== MONITOR ==========");
       Serial.print("Suhu: "); Serial.println(sensorData.temperature);
@@ -171,20 +183,31 @@ void vControlTask(void *pvParameter) {
       }
 
       // ================ IRRIGATION CONTROL ==================
+      // Timer-based irrigation
       if (millis() - lastIrrigation >= interval) {
-        irrCmd.triggerType = 1; // TIMER
+        IrrigationCommand irrCmd;
+        irrCmd.triggerType = 1;  // TIMER
         irrCmd.time = millis();
-        xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100));
+        
+        if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
+          Serial.println("WARNING: Irrigation queue penuh!");
+        }
       }
 
+      // Soil moisture-based irrigation
       if (sensorData.soil < soilThreshold) {
-        irrCmd.triggerType = 2; // SOIL DI BAWAH THRESHOLD
+        IrrigationCommand irrCmd;
+        irrCmd.triggerType = 2;  // SOIL DI BAWAH THRESHOLD
         irrCmd.time = millis();
-        xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100));
+        
+        if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
+          Serial.println("WARNING: Irrigation queue penuh!");
+        }
       }
     }
     
     // Proses command irigasi dari queue
+    IrrigationCommand irrCmd;
     if (xQueueReceive(irrigationQueue, &irrCmd, 0) == pdTRUE) {
       switch (irrCmd.triggerType) {
         case 1:
@@ -215,10 +238,9 @@ void vControlTask(void *pvParameter) {
 }
 
 void vButtonTask(void *pvParameter) {
-  IrrigationCommand irrCmd;
   bool lastButtonState = HIGH;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xPeriod = pdMS_TO_TICKS(50); // Debounce 50ms
+  const TickType_t xPeriod = pdMS_TO_TICKS(50);  // Debounce 50ms
   
   while (1) {
     bool currentButtonState = digitalRead(LOCAL_BUTTON);
@@ -226,9 +248,13 @@ void vButtonTask(void *pvParameter) {
     // Deteksi falling edge (tekan tombol)
     if (lastButtonState == HIGH && currentButtonState == LOW) {
       Serial.println("Pemicu: TOMBOL LOKAL");
-      irrCmd.triggerType = 3; // Tombol Lokal
+      IrrigationCommand irrCmd;
+      irrCmd.triggerType = 3;  // Tombol Lokal
       irrCmd.time = millis();
-      xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100));
+      
+      if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
+        Serial.println("WARNING: Irrigation queue penuh!");
+      }
       vTaskDelay(300 / portTICK_PERIOD_MS); // Debounce delay
     }
     
@@ -238,7 +264,6 @@ void vButtonTask(void *pvParameter) {
 }
 
 void vBlynkTask(void *pvParameter) {
-  SensorData sensorData;
   bool localBlynkManual = false;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xPeriod = pdMS_TO_TICKS(2000);
@@ -253,15 +278,18 @@ void vBlynkTask(void *pvParameter) {
       xSemaphoreGive(blynkMutex);
     }
     
-    // Proses Blynk manual di luar mutex
+    // Proses Blynk manual
     if (localBlynkManual) {
       Serial.println("Pemicu: BLYNK BUTTON");
       localBlynkManual = false;
       
       IrrigationCommand irrCmd;
-      irrCmd.triggerType = 4; // BLYNK BUTTON
+      irrCmd.triggerType = 4;  // BLYNK BUTTON
       irrCmd.time = millis();
-      xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100));
+      
+      if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
+        Serial.println("WARNING: Irrigation queue full!");
+      }
       
       // Kirim update ke Blynk
       if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
@@ -270,15 +298,15 @@ void vBlynkTask(void *pvParameter) {
       }
     }
     
-    // Kirim data sensor ke Blynk
-    if (xQueueReceive(sensorQueue, &sensorData, 0) == pdTRUE) {
-      if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
-        Blynk.virtualWrite(V1, sensorData.temperature);
-        Blynk.virtualWrite(V2, sensorData.humidity);
-        Blynk.virtualWrite(V3, sensorData.soil);
-        Blynk.virtualWrite(V4, sensorData.mq);
-        xSemaphoreGive(blynkMutex);
-      }
+    // Kirim data sensor ke Blynk dari buffer circular
+    if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
+      // Ambil data terbaru dari buffer
+      int latestIndex = (bufferIndex == 0) ? BUFFER_SIZE - 1 : bufferIndex - 1;
+      Blynk.virtualWrite(V1, sensorBuffer[latestIndex].temperature);
+      Blynk.virtualWrite(V2, sensorBuffer[latestIndex].humidity);
+      Blynk.virtualWrite(V3, sensorBuffer[latestIndex].soil);
+      Blynk.virtualWrite(V4, sensorBuffer[latestIndex].mq);
+      xSemaphoreGive(blynkMutex);
     }
     
     // Run Blynk
@@ -293,7 +321,7 @@ void vBlynkTask(void *pvParameter) {
 
 void setup() {
   Serial.begin(115200);
-  delay(1000); // Tunggu serial ready
+  delay(1000);  // tunggu serial ready
 
   pinMode(PUMP_LED, OUTPUT);
   digitalWrite(PUMP_LED, LOW);  // pompa mati saat startup
@@ -326,6 +354,14 @@ void setup() {
   pumpMutex = xSemaphoreCreateMutex();
   sensorMutex = xSemaphoreCreateMutex();
   blynkMutex = xSemaphoreCreateMutex();
+  
+  // Initialize buffer dengan nilai default
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    sensorBuffer[i].temperature = 0.0;
+    sensorBuffer[i].humidity = 0.0;
+    sensorBuffer[i].soil = 0;
+    sensorBuffer[i].mq = 0;
+  }
   
   // Create tasks
   xTaskCreatePinnedToCore(vSensorTask, "SensorTask", 4096, NULL, 2, &sensorTaskHandle, 0);
