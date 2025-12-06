@@ -1,11 +1,10 @@
 /***************************************************
  * SMART FARM SYSTEM - Kelompok 13
  * Fitur:
- *  - Penyiraman interval timer (SOFTWARE TIMER)
+ *  - Penyiraman interval timer
  *  - Penyiraman berdasarkan soil threshold
  *  - Penyiraman manual dari tombol & Blynk
  *  - Warning suhu, kelembapan, kualitas udara
- *  - BLE Server untuk monitoring sensor 
  ***************************************************/
 
 #define BLYNK_TEMPLATE_ID "TMPL6iLhzYrwu"
@@ -20,23 +19,16 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
-#include <freertos/timers.h>
-#include <BLEDevice.h>       
-#include <BLEServer.h>       
-#include <BLEUtils.h>        
-#include <BLE2902.h>         
+#include <freertos/timers.h>  
 
 // ====== WiFi ======
-// char ssid[] = "wifi.id"; 
-// char pass[] = "caritauu";
-char ssid[] = "Wokwi-GUEST"; 
-char pass[] = "";
-
+char ssid[] = "Wi-Fi"; 
+char pass[] = "password";
 
 // ====== Pin Assignment ======
 #define DHTPIN 15
 #define DHTTYPE DHT22
-#define SOIL_PIN 35
+#define SOIL_PIN 35     // pin ADC buat aslinya nanti
 #define MQ_PIN 34
 #define PUMP_LED 2
 #define LOCAL_BUTTON 26
@@ -47,31 +39,19 @@ DHT dht(DHTPIN, DHTTYPE);
 int soilThreshold = 40;
 float tempThreshold = 32.0;
 float humThreshold = 40.0;
-int mqThreshold = 1500;
+int mqThreshold = 1500;   // perkiraan, referensi pada pake ppm soalnya bukan adc, harus dihitung dulu entar (?)
 
 // ====== Irrigation Settings ======
-unsigned long interval = 10000;  // 10 detik untuk testing
+unsigned long interval = 10000;  // 21600000 (tiap 6 jam)
 
-// ====== BLE Configuration ======  
-#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
-#define CHAR_TEMP_UUID      "12345678-1234-1234-1234-123456789ab1"
-#define CHAR_HUM_UUID       "12345678-1234-1234-1234-123456789ab2"
-#define CHAR_SOIL_UUID      "12345678-1234-1234-1234-123456789ab3"
-#define CHAR_MQ_UUID        "12345678-1234-1234-1234-123456789ab4"
-
-BLEServer* pServer = NULL;
-BLECharacteristic* pCharTemp = NULL;
-BLECharacteristic* pCharHum = NULL;
-BLECharacteristic* pCharSoil = NULL;
-BLECharacteristic* pCharMQ = NULL;
-bool bleDeviceConnected = false;
+// Sudah software timer
+// unsigned long lastIrrigation = 0;
 
 // ====== Task Management ======
 TaskHandle_t sensorTaskHandle = NULL;
 TaskHandle_t controlTaskHandle = NULL;
 TaskHandle_t blynkTaskHandle = NULL;
 TaskHandle_t buttonTaskHandle = NULL;
-TaskHandle_t bleTaskHandle = NULL;  
 
 // ====== Queue Management ======
 QueueHandle_t sensorQueue = NULL;
@@ -81,7 +61,6 @@ QueueHandle_t irrigationQueue = NULL;
 SemaphoreHandle_t pumpMutex = NULL;
 SemaphoreHandle_t sensorMutex = NULL;
 SemaphoreHandle_t blynkMutex = NULL;
-SemaphoreHandle_t bleMutex = NULL; 
 
 // ====== Software Timer for Irrigation ======
 TimerHandle_t irrigationTimer = NULL;
@@ -95,7 +74,7 @@ typedef struct {
 } SensorData;
 
 typedef struct {
-  int triggerType;
+  int triggerType;  // 1 = TIMER, 2 = SOIL, 3 = TOMBOL, 4 = BLYNK
   unsigned long time;
 } IrrigationCommand;
 
@@ -103,35 +82,22 @@ typedef struct {
 bool blynkManual = false;
 
 // ====== Circular Buffer for Sensor Data ======
-#define BUFFER_SIZE 5
+#define BUFFER_SIZE 5  // buffer untuk menyimpan data sensor terakhir
 SensorData sensorBuffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
-// ====== BLE Server Callbacks ======  
-class MyServerCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    bleDeviceConnected = true;
-    Serial.println("BLE Client Connected!");
-  }
-  
-  void onDisconnect(BLEServer* pServer) {
-    bleDeviceConnected = false;
-    Serial.println("BLE Client Disconnected!");
-    // Auto restart advertising
-    pServer->startAdvertising();
-  }
-};
-
-// ====== SOFTWARE TIMER CALLBACK ======
+// ====== SOFTWARE TIMER CALLBACK ====== 
 void irrigationTimerCallback(TimerHandle_t xTimer) {
   IrrigationCommand irrCmd;
-  irrCmd.triggerType = 1;
+  irrCmd.triggerType = 1;  // TIMER
   irrCmd.time = millis();
   
+  // Kirim command ke irrigation queue
   if (xQueueSend(irrigationQueue, &irrCmd, 0) != pdPASS) {
     Serial.println("WARNING: Irrigation queue penuh dari Timer!");
   }
 }
+
 
 // Blynk V0 → manual control
 BLYNK_WRITE(V0) {
@@ -143,9 +109,9 @@ BLYNK_WRITE(V0) {
 
 void irrigate() {
   if (xSemaphoreTake(pumpMutex, portMAX_DELAY) == pdTRUE) {
-    Serial.println(">>> AIR AIR AIR <<<");
+    Serial.println(">>> AIR AIT AIR <<<");
     digitalWrite(PUMP_LED, HIGH);
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);    // non-blocking delay
     digitalWrite(PUMP_LED, LOW);
     Serial.println(">>> IRIGASI SELESAI <<<");
     xSemaphoreGive(pumpMutex);
@@ -154,7 +120,7 @@ void irrigate() {
 
 int readSoil() {
   int raw = analogRead(SOIL_PIN);
-  int moisture = map(raw, 4095, 1500, 0, 100);
+  int moisture = map(raw, 4095, 1500, 0, 100);  // 4095 = kering (di udara), 1500 = basah (di air)
   return constrain(moisture, 0, 100);
 }
 
@@ -171,6 +137,7 @@ void vSensorTask(void *pvParameter) {
   while (1) {
     SensorData sensorData;
     
+    // Baca data sensor dengan proteksi mutex
     if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
       sensorData.temperature = dht.readTemperature();
       sensorData.humidity = dht.readHumidity();
@@ -180,12 +147,14 @@ void vSensorTask(void *pvParameter) {
     sensorData.soil = readSoil();
     sensorData.mq = readMQ();
     
+    // Kirim data sensor ke queue untuk ControlTask
     if (xQueueSend(sensorQueue, &sensorData, pdMS_TO_TICKS(100)) != pdPASS) {
       Serial.println("WARNING: Sensor queue penuh!");
     }
     
+    // Simpan data terbaru di buffer circular untuk BlynkTask
     if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
-      sensorBuffer[bufferIndex] = sensorData;
+      sensorBuffer[bufferIndex] = sensorData;  // Copy data ke buffer
       bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
       xSemaphoreGive(blynkMutex);
     }
@@ -233,9 +202,21 @@ void vControlTask(void *pvParameter) {
       }
 
       // ================ IRRIGATION CONTROL ==================
+      // Timer-based irrigation
+      // if (millis() - lastIrrigation >= interval) {
+      //   IrrigationCommand irrCmd;
+      //   irrCmd.triggerType = 1;  // TIMER
+      //   irrCmd.time = millis();
+        
+      //   if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
+      //     Serial.println("WARNING: Irrigation queue penuh!");
+      //   }
+      // }
+
+      // Soil moisture-based irrigation
       if (sensorData.soil < soilThreshold) {
         IrrigationCommand irrCmd;
-        irrCmd.triggerType = 2;
+        irrCmd.triggerType = 2;  // SOIL DI BAWAH THRESHOLD
         irrCmd.time = millis();
         
         if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
@@ -244,6 +225,7 @@ void vControlTask(void *pvParameter) {
       }
     }
     
+    // Proses command irigasi dari queue
     IrrigationCommand irrCmd;
     if (xQueueReceive(irrigationQueue, &irrCmd, 0) == pdTRUE) {
       switch (irrCmd.triggerType) {
@@ -273,20 +255,22 @@ void vControlTask(void *pvParameter) {
 void vButtonTask(void *pvParameter) {
   bool lastButtonState = HIGH;
   TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xPeriod = pdMS_TO_TICKS(50);
+  const TickType_t xPeriod = pdMS_TO_TICKS(50);  // Debounce 50ms
   
   while (1) {
     bool currentButtonState = digitalRead(LOCAL_BUTTON);
     
+    // Deteksi falling edge (tekan tombol)
     if (lastButtonState == HIGH && currentButtonState == LOW) {
+      Serial.println("Pemicu: TOMBOL LOKAL");
       IrrigationCommand irrCmd;
-      irrCmd.triggerType = 3;
+      irrCmd.triggerType = 3;  // Tombol Lokal
       irrCmd.time = millis();
       
       if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
         Serial.println("WARNING: Irrigation queue penuh!");
       }
-      vTaskDelay(300 / portTICK_PERIOD_MS);
+      vTaskDelay(300 / portTICK_PERIOD_MS); // Debounce delay
     }
     
     lastButtonState = currentButtonState;
@@ -300,6 +284,7 @@ void vBlynkTask(void *pvParameter) {
   const TickType_t xPeriod = pdMS_TO_TICKS(2000);
   
   while (1) {
+    // Cek Blynk manual
     if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
       if (blynkManual) {
         localBlynkManual = true;
@@ -308,24 +293,29 @@ void vBlynkTask(void *pvParameter) {
       xSemaphoreGive(blynkMutex);
     }
     
+    // Proses Blynk manual
     if (localBlynkManual) {
+      Serial.println("Pemicu: BLYNK BUTTON");
       localBlynkManual = false;
       
       IrrigationCommand irrCmd;
-      irrCmd.triggerType = 4;
+      irrCmd.triggerType = 4;  // BLYNK BUTTON
       irrCmd.time = millis();
       
       if (xQueueSend(irrigationQueue, &irrCmd, pdMS_TO_TICKS(100)) != pdPASS) {
         Serial.println("WARNING: Irrigation queue full!");
       }
       
+      // Kirim update ke Blynk
       if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
         Blynk.virtualWrite(V0, 0);
         xSemaphoreGive(blynkMutex);
       }
     }
     
+    // Kirim data sensor ke Blynk dari buffer circular
     if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
+      // Ambil data terbaru dari buffer
       int latestIndex = (bufferIndex == 0) ? BUFFER_SIZE - 1 : bufferIndex - 1;
       Blynk.virtualWrite(V1, sensorBuffer[latestIndex].temperature);
       Blynk.virtualWrite(V2, sensorBuffer[latestIndex].humidity);
@@ -334,6 +324,7 @@ void vBlynkTask(void *pvParameter) {
       xSemaphoreGive(blynkMutex);
     }
     
+    // Run Blynk
     if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
       Blynk.run();
       xSemaphoreGive(blynkMutex);
@@ -343,53 +334,12 @@ void vBlynkTask(void *pvParameter) {
   }
 }
 
-// ====== BLE TASK ======  
-void vBLETask(void *pvParameter) {
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xPeriod = pdMS_TO_TICKS(2000);  // Update setiap 2 detik
-  
-  while (1) {
-    // Kirim data sensor via BLE jika ada client yang connect
-    if (bleDeviceConnected && xSemaphoreTake(bleMutex, portMAX_DELAY) == pdTRUE) {
-      // Ambil data terbaru dari buffer
-      if (xSemaphoreTake(blynkMutex, portMAX_DELAY) == pdTRUE) {
-        int latestIndex = (bufferIndex == 0) ? BUFFER_SIZE - 1 : bufferIndex - 1;
-        SensorData data = sensorBuffer[latestIndex];
-        xSemaphoreGive(blynkMutex);
-        
-        // Update BLE characteristics
-        String tempStr = String(data.temperature, 1) + " C";
-        String humStr = String(data.humidity, 1) + " %";
-        String soilStr = String(data.soil) + " %";
-        String mqStr = String(data.mq);
-        
-        pCharTemp->setValue(tempStr.c_str());
-        pCharTemp->notify();
-        
-        pCharHum->setValue(humStr.c_str());
-        pCharHum->notify();
-        
-        pCharSoil->setValue(soilStr.c_str());
-        pCharSoil->notify();
-        
-        pCharMQ->setValue(mqStr.c_str());
-        pCharMQ->notify();
-        
-        Serial.println("BLE: Data sent to client");
-      }
-      xSemaphoreGive(bleMutex);
-    }
-    
-    vTaskDelayUntil(&xLastWakeTime, xPeriod);
-  }
-}
-
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(1000);  // tunggu serial ready
 
   pinMode(PUMP_LED, OUTPUT);
-  digitalWrite(PUMP_LED, LOW);
+  digitalWrite(PUMP_LED, LOW);  // pompa mati saat startup
   
   pinMode(LOCAL_BUTTON, INPUT_PULLUP);
 
@@ -410,64 +360,17 @@ void setup() {
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
   Serial.println("\n Blynk Connected!");
 
-  // ====== INITIALIZE BLE ======  
-  Serial.println("Initializing BLE...");
-  BLEDevice::init("SmartFarm_K13");  // Nama BLE device
-
-  // Create BLE Server
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
-  
-  // Create BLE Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-  
-  // Create BLE Characteristics
-  pCharTemp = pService->createCharacteristic(
-    CHAR_TEMP_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharTemp->addDescriptor(new BLE2902());
-  
-  pCharHum = pService->createCharacteristic(
-    CHAR_HUM_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharHum->addDescriptor(new BLE2902());
-  
-  pCharSoil = pService->createCharacteristic(
-    CHAR_SOIL_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharSoil->addDescriptor(new BLE2902());
-  
-  pCharMQ = pService->createCharacteristic(
-    CHAR_MQ_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharMQ->addDescriptor(new BLE2902());
-  
-  // Start service
-  pService->start();
-  
-  // Start advertising
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);
-  pAdvertising->setMinPreferred(0x12);
-  BLEDevice::startAdvertising();
-  
-  Serial.println("BLE Ready! Device name: SmartFarm_K13");
-
   // ====== INITIALIZE RTOS COMPONENTS ======
+  // Create queues
   sensorQueue = xQueueCreate(10, sizeof(SensorData));
   irrigationQueue = xQueueCreate(10, sizeof(IrrigationCommand));
   
+  // Create mutexes
   pumpMutex = xSemaphoreCreateMutex();
   sensorMutex = xSemaphoreCreateMutex();
   blynkMutex = xSemaphoreCreateMutex();
-  bleMutex = xSemaphoreCreateMutex();  
   
+  // Initialize buffer dengan nilai default
   for (int i = 0; i < BUFFER_SIZE; i++) {
     sensorBuffer[i].temperature = 0.0;
     sensorBuffer[i].humidity = 0.0;
@@ -476,13 +379,14 @@ void setup() {
   }
 
   irrigationTimer = xTimerCreate(
-    "IrrigationTimer",
-    pdMS_TO_TICKS(interval),
-    pdTRUE,
-    (void *)0,
-    irrigationTimerCallback
+    "IrrigationTimer",           // Nama timer
+    pdMS_TO_TICKS(interval),     // Period (10 detik atau 6 jam)
+    pdTRUE,                      // Auto-reload (repeat terus)
+    (void *)0,                   // Timer ID (tidak dipakai)
+    irrigationTimerCallback      // Callback function
   );
   
+  // Start timer
   if (irrigationTimer != NULL) {
     xTimerStart(irrigationTimer, 0);
     Serial.println("Software Timer Started!");
@@ -493,7 +397,6 @@ void setup() {
   xTaskCreatePinnedToCore(vControlTask, "ControlTask", 4096, NULL, 3, &controlTaskHandle, 0);
   xTaskCreatePinnedToCore(vButtonTask, "ButtonTask", 2048, NULL, 1, &buttonTaskHandle, 1);
   xTaskCreatePinnedToCore(vBlynkTask, "BlynkTask", 4096, NULL, 2, &blynkTaskHandle, 1);
-  xTaskCreatePinnedToCore(vBLETask, "BLETask", 4096, NULL, 2, &bleTaskHandle, 0); 
   
   Serial.println("RTOS Tasks Initialized!");
 }
