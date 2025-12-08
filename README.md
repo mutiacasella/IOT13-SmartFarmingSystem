@@ -46,10 +46,6 @@ Pastikan library berikut telah terinstall:
 ### Komponen Utama
 - **DHT22 / DHT11**: Mengukur temperatur dan kelembaban udara.
 - **MQ-Series Gas Sensor**: Mendeteksi kualitas udara dan keberadaan gas berbahaya.
-...
-### Komponen Utama
-- **DHT22 / DHT11**: Mengukur temperatur dan kelembaban udara.
-- **MQ-Series Gas Sensor**: Mendeteksi kualitas udara dan keberadaan gas berbahaya.
 - **Soil Moisture Sensor**: Mengukur tingkat kelembapan tanah.
 - **Relay Module**: Mengendalikan pompa irigasi.
 - **Water Pump**: Mengalirkan air irigasi ke tanaman.
@@ -131,18 +127,19 @@ Smart Farm Monitoring & Irrigation System terbukti efektif dalam mengotomatiskan
 ---
 
 ## V. References
-- [1]ESP32 I/O, “ESP32 - Gas Sensor,” ESP32 Tutorial, 2025. https://esp32io.com/tutorials/esp32-gas-sensor (accessed Dec. 08, 2025).
+- [1]ESP32 I/O, “ESP32 - Gas Sensor,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-gas-sensor (accessed Dec. 08, 2025).
 - [2]Digilab UI, “Module 2 - Task Manage... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-2-task-management (accessed Dec. 08, 2025).
 - [3]Digilab UI, “Module 3 - Memory Mana... | Digilab UI,” Digilabdte.com, 2018. https://learn.digilabdte.com/books/internet-of-things/chapter/module-3-memory-management-queue (accessed Dec. 08, 2025).
 - [4]Digilab UI, “Module 4 - Deadlock & ... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-4-deadlock-synchronization (accessed Dec. 08, 2025).
 - [5]Digilab UI, “Module 5 - Software Timer | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-5-software-timer (accessed Dec. 08, 2025).
-- [6]Digilab UI, “Module 7 - MQTT, HTTP,... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-7-mqtt-http-wifi (accessed Dec. 08, 2025).
-- [7]Digilab UI, “Module 9 - IoT Platfor... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-9-iot-platforms-blynk-and-red-node (accessed Dec. 08, 2025).
-- [8]Random Nerd Tutorials, “ESP32 FreeRTOS: Software Timers/Timer Interrupts (Arduino) | Random Nerd Tutorials,” Random Nerd Tutorials, Nov. 20, 2025. https://randomnerdtutorials.com/esp32-freertos-software-timers-interrupts/ (accessed Dec. 08, 2025).
-- [9]Random Nerd Tutorials, “ESP32 Bluetooth Low Energy (BLE) on Arduino IDE | Random Nerd Tutorials,” Random Nerd Tutorials, May 16, 2019. https://randomnerdtutorials.com/esp32-bluetooth-low-energy-ble-arduino-ide/ (accessed Dec. 08, 2025).
-- [10]ESP32 I/0, “ESP32 - Soil Moisture Sensor,” ESP32 Tutorial, 2025. https://esp32io.com/tutorials/esp32-soil-moisture-sensor (accessed Dec. 08, 2025).
-- [11]ESP32 I/O, “ESP32 - Soil Moisture Sensor Pump | ESP32 Tutorial,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-soil-moisture-sensor-pump (accessed Dec. 08, 2025).
-- [12]ESP32 I/O, “ESP32 - Automatic Irrigation System,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-automatic-irrigation-system (accessed Dec. 08, 2025).
+- [6]Digilab UI, “Module 6 - Bluetooth &... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-6-bluetooth-ble (accessed Dec. 08, 2025).
+- [7]Digilab UI, “Module 7 - MQTT, HTTP,... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-7-mqtt-http-wifi (accessed Dec. 08, 2025).
+- [8]Digilab UI, “Module 9 - IoT Platfor... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-9-iot-platforms-blynk-and-red-node (accessed Dec. 08, 2025).
+- [9]Random Nerd Tutorials, “ESP32 FreeRTOS: Software Timers/Timer Interrupts (Arduino) | Random Nerd Tutorials,” Random Nerd Tutorials, Nov. 20, 2025. https://randomnerdtutorials.com/esp32-freertos-software-timers-interrupts/ (accessed Dec. 08, 2025).
+- [10]Random Nerd Tutorials, “ESP32 Bluetooth Low Energy (BLE) on Arduino IDE | Random Nerd Tutorials,” Random Nerd Tutorials, May 16, 2019. https://randomnerdtutorials.com/esp32-bluetooth-low-energy-ble-arduino-ide/ (accessed Dec. 08, 2025).
+- [11]ESP32 I/0, “ESP32 - Soil Moisture Sensor,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-soil-moisture-sensor (accessed Dec. 08, 2025).
+- [12]ESP32 I/O, “ESP32 - Soil Moisture Sensor Pump | ESP32 Tutorial,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-soil-moisture-sensor-pump (accessed Dec. 08, 2025).
+- [13]ESP32 I/O, “ESP32 - Automatic Irrigation System,” ESP32 Tutorial, 2018. https://esp32io.com/tutorials/esp32-automatic-irrigation-system (accessed Dec. 08, 2025).
 
 ---
 
