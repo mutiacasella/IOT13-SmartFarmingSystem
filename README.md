@@ -90,7 +90,7 @@ Perangkat lunak dikembangkan menggunakan Arduino IDE. Fitur utamanya mencakup:
         <b>Bluetooth LE</b>
       </td>
       <td align="center" width="180">
-        <img src="https://stories.enkosa.com/shared-files/3802/download-logo-blynk-png.png?download=1" width="100" alt="Blynk"><br>
+        <img src="https://stories.enkosa.com/shared-files/3802/download-logo-blynk-png.png?" width="100" alt="Blynk"><br>
         <b>Blynk IoT</b>
       </td>
     </tr>
