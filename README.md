@@ -112,9 +112,7 @@ Hasil pengujian menunjukkan bahwa sistem mampu bekerja secara mandiri dan efisie
 
 ## Final Product
 
-![Image 1]()
-
-![Image 2]()
+![Foto Rangkaian Asli](https://hackmd.io/_uploads/rk2El_4fZg.jpg)
 
 ---
 

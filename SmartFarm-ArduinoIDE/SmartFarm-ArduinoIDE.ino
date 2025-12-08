@@ -27,16 +27,16 @@
 #include <BLE2902.h>         
 
 // ====== WiFi ====== (for Blynk)
-char ssid[] = "Wokwi-GUEST"; 
-char pass[] = "";
+char ssid[] = "Wi-Fi"; 
+char pass[] = "password";
 
 
 // ====== Pin Assignment ======
 #define DHTPIN 15
-#define DHTTYPE DHT22
+#define DHTTYPE DHT11
 #define SOIL_PIN 35
 #define MQ_PIN 34
-#define PUMP_LED 2
+#define PUMP_LED 5
 #define LOCAL_BUTTON 26
 
 DHT dht(DHTPIN, DHTTYPE);
