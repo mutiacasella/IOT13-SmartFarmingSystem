@@ -100,11 +100,11 @@ Perangkat lunak dikembangkan menggunakan Arduino IDE. Fitur utamanya mencakup:
 ## III. Testing and Evaluation
 
 Pengujian dilakukan untuk memastikan keandalan sistem dalam berbagai kondisi:
-- **Akurasi Sensor DHT**: 
-- **Deteksi Gas**: 
-- **Soil Moisture Sensor**: 
-- **Mekanisme Penyiraman**: 
-- **Stabilitas Sistem**: 
+- **Akurasi Sensor DHT**: Sensor membaca suhu dan kelembaban udara dengan stabil dan respons yang lumayan cepat.
+- **Deteksi Gas**: Sensor mampu mendeteksi peningkatan kadar gas secara real-time dan menampilkan peringatan pada dashboard.
+- **Soil Moisture Sensor**: Pembacaan kelembaban tanah akurat dengan perubahan nilai yang konsisten sesuai kondisi kering/basah tanah.
+- **Mekanisme Penyiraman**: Pompa irigasi bekerja sesuai tiga pemicu: interval waktu, nilai kelembaban tanah di bawah threshold, dan perintah manual melalui aplikasi/tombol. Walau terkendala yang disebabkan dari masalah wiring yang rentan terlepas, dan memompa air yang membuat pelepasan selang input harus disingkirkan terlebih dahulu.
+- **Stabilitas Sistem**: FreeRTOS memastikan task berjalan tanpa konflik.
 
 Hasil pengujian menunjukkan bahwa sistem mampu bekerja secara mandiri dan efisien dalam menjaga kondisi tanaman.
 
@@ -122,7 +122,9 @@ Hasil pengujian menunjukkan bahwa sistem mampu bekerja secara mandiri dan efisie
 Smart Farm Monitoring & Irrigation System terbukti efektif dalam mengotomatiskan kontrol pertanian dan meminimalkan intervensi manual tanpa mengurangi akurasi monitoring.
 
 ### Rencana Pengembangan
-- 
+- Penambahan sensor tambahan untuk analisis kondisi tanaman yang lebih akurat.
+- Sistem penyimpanan data untuk memonitor data historis.
+- Implementasi panel surya sebagai sumber daya agar sistem lebih hemat energi dan mandiri.
 
 ---
 
