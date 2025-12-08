@@ -1,6 +1,15 @@
 # Smart Farming System
 
-## Introduction to the problem and the solution
+## Table of Contents
+- [I. Introduction](#i-introduction)
+- [II. Implementation](#ii-implementation)
+- [III. Testing and Evaluation](#iii-testing-and-evaluation)
+- [IV. Conclusion](#iv-conclusion)
+- [V. References](#v-references)
+
+---
+
+## I. Introduction
 Pertanian modern membutuhkan sistem pemantauan yang efisien agar kondisi tanaman tetap optimal tanpa harus melakukan pengecekan manual secara terus-menerus. Monitoring tradisional cenderung memakan waktu, kurang akurat, dan dapat menyebabkan keterlambatan tindakan seperti penyiraman ketika tanah sudah kering.
 
 Smart Farming System menawarkan solusi otomatis berbasis IoT yang mampu:
@@ -11,8 +20,33 @@ Smart Farming System menawarkan solusi otomatis berbasis IoT yang mampu:
 
 ---
 
-## Hardware Design and Implementation Details
+## II. Implementation
 
+### Prerequisites & System Requirements
+
+#### ESP32 Partition Scheme
+Ukuran dari hasil upload ini mencapai 1.2MB, diperlukan pengaturan partition scheme pada Arduino IDE:
+
+1. Buka Arduino IDE
+2. Pilih **Tools** → **Partition Scheme**
+3. Pilih **"No OTA (2MB APP/2MB SPIFFS)"**
+   - APP Space: 2MB untuk aplikasi
+   - SPIFFS: 2MB untuk file system
+   
+> Tanpa konfigurasi ini, proses upload firmware akan gagal karena ukuran .bin melebihi ukuran default partition.
+
+#### Library Dependencies
+Pastikan library berikut telah terinstall:
+- DHT sensor library
+- Blynk library
+- ESP32 BLE Arduino
+
+---
+
+### Komponen Utama
+- **DHT22 / DHT11**: Mengukur temperatur dan kelembaban udara.
+- **MQ-Series Gas Sensor**: Mendeteksi kualitas udara dan keberadaan gas berbahaya.
+...
 ### Komponen Utama
 - **DHT22 / DHT11**: Mengukur temperatur dan kelembaban udara.
 - **MQ-Series Gas Sensor**: Mendeteksi kualitas udara dan keberadaan gas berbahaya.
@@ -27,8 +61,6 @@ Smart Farming System menawarkan solusi otomatis berbasis IoT yang mampu:
 - Mikrokontroler menghubungkan seluruh sensor dan aktuator
 
 ---
-
-## Software Implementation Details
 
 ### Perangkat Lunak
 Perangkat lunak dikembangkan menggunakan Arduino IDE. Fitur utamanya mencakup:
@@ -45,9 +77,31 @@ Perangkat lunak dikembangkan menggunakan Arduino IDE. Fitur utamanya mencakup:
 - **Keputusan Penyiraman**: Penyiraman otomatis aktif jika tanah terlalu kering, suhu terlalu tinggi, atau interval waktu penyiraman sudah tercapai.
 - **Aktuasi Irigasi**: Mikrokontroler menyalakan pompa melalui relay dan menghentikannya ketika kelembapan tanah telah mencapai batas optimal.
 
+<br>
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="180">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/WiFi_Logo.svg/320px-WiFi_Logo.svg.png" width="85" alt="WiFi"><br>
+        <b>Wi-Fi Connectivity</b>
+      </td>
+      <td align="center" width="180">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Bluetooth.svg/500px-Bluetooth.svg.png" width="55" alt="BLE"><br>
+        <b>Bluetooth LE</b>
+      </td>
+      <td align="center" width="180">
+        <img src="https://stories.enkosa.com/shared-files/3802/download-logo-blynk-png.png?download=1" width="100" alt="Blynk"><br>
+        <b>Blynk IoT</b>
+      </td>
+    </tr>
+  </table>
+</div>
+<br>
+
+
 ---
 
-## Test Results and Performance Evaluation
+## III. Testing and Evaluation
 
 Pengujian dilakukan untuk memastikan keandalan sistem dalam berbagai kondisi:
 - **Akurasi Sensor DHT**: 
@@ -68,7 +122,7 @@ Hasil pengujian menunjukkan bahwa sistem mampu bekerja secara mandiri dan efisie
 
 ---
 
-## Conclusion and Future Work
+## IV. Conclusion
 Smart Farm Monitoring & Irrigation System terbukti efektif dalam mengotomatiskan kontrol pertanian dan meminimalkan intervensi manual tanpa mengurangi akurasi monitoring.
 
 ### Rencana Pengembangan
@@ -76,7 +130,7 @@ Smart Farm Monitoring & Irrigation System terbukti efektif dalam mengotomatiskan
 
 ---
 
-## References
+## V. References
 - [1]ESP32 I/O, “ESP32 - Gas Sensor,” ESP32 Tutorial, 2025. https://esp32io.com/tutorials/esp32-gas-sensor (accessed Dec. 08, 2025).
 - [2]Digilab UI, “Module 2 - Task Manage... | Digilab UI,” Digilabdte.com, 2025. https://learn.digilabdte.com/books/internet-of-things/chapter/module-2-task-management (accessed Dec. 08, 2025).
 - [3]Digilab UI, “Module 3 - Memory Mana... | Digilab UI,” Digilabdte.com, 2018. https://learn.digilabdte.com/books/internet-of-things/chapter/module-3-memory-management-queue (accessed Dec. 08, 2025).
@@ -93,13 +147,7 @@ Smart Farm Monitoring & Irrigation System terbukti efektif dalam mengotomatiskan
 ---
 
 ## Authors 
-- Azra Nabila Azzahra (2306161782)
-- Muhamad Rey Kafaka Fadlan (2306250573)
-- Mutia Casella (2306202870)
-- Wilman Saragih Sitio (2306161776)
-
- **Universitas Indonesia** 
- 
- Departement of Electrical Engineering 
- 
- December 8, 2025
+- [Azra Nabila Azzahra](https://github.com/AzraNA24) (2306161782)
+- [Muhamad Rey Kafaka Fadlan](https://github.com/MuhamadReyKF) (2306250573)
+- [Mutia Casella](https://github.com/mutiacasella/) (2306202870)
+- [Wilman Saragih Sitio](https://github.com/Tinkermannn) (2306161776)
